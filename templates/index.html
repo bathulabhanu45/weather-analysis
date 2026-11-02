@@ -1,0 +1,486 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Weather Data Analysis System</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <!-- Local Chart.js library (no CDN dependency for reliable offline/college evaluation) -->
+    <script src="{{ url_for('static', filename='js/chart.min.js') }}"></script>
+</head>
+<body>
+
+    <!-- Navigation Header -->
+    <header class="navbar">
+        <div class="container nav-container">
+            <a href="#home" class="brand">
+                <svg class="brand-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 15a4 4 0 004 4h9a5 5 0 10-.1-9.999 5.002 5.002 0 00-9.78 2.096A4.001 4.001 0 003 15z"></path>
+                </svg>
+                <span class="brand-title">Weather Data Analysis System</span>
+            </a>
+
+            <nav>
+                <ul class="nav-links">
+                    <li><a href="#home" class="nav-link">Home</a></li>
+                    <li><a href="#dashboard" class="nav-link">Dashboard</a></li>
+                    <li><a href="#upload" class="nav-link">Upload CSV</a></li>
+                    <li><a href="#analysis" class="nav-link">Analysis</a></li>
+                    <li><a href="#charts" class="nav-link">Charts</a></li>
+                    <li><a href="#records" class="nav-link">Records</a></li>
+                    <li><a href="#quality-report" class="nav-link">Quality Report</a></li>
+                </ul>
+            </nav>
+
+            <div>
+                <span id="dbEngineBadge" class="status-badge">Database: {{ db_type|upper }}</span>
+            </div>
+        </div>
+    </header>
+
+    <!-- 1. Home Section -->
+    <section id="home" class="hero">
+        <div class="container">
+            <div class="hero-box">
+                <h1 class="hero-title">Weather Data Analysis System</h1>
+                <div class="hero-subtitle">Analyze temperature, humidity, and rainfall data.</div>
+                <p class="hero-desc">
+                    A clean, beginner-friendly platform designed for college projects to inspect, analyze, and visualize historical meteorological records. Upload your local weather datasets to automatically compute descriptive statistics, observe monthly precipitation summaries, inspect data quality errors, and review interactive trend charts.
+                </p>
+                <div class="hero-actions">
+                    <a href="#upload" class="btn btn-primary" onclick="document.getElementById('csvFileInput').click();">
+                        <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path></svg>
+                        Upload Weather Data
+                    </a>
+                    <button id="btnLoadSample" class="btn btn-secondary" title="Load sample dataset for fast demonstration">
+                        <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+                        Load Sample Dataset
+                    </button>
+                    <a href="/download-sample" class="btn btn-outline" download>
+                        <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+                        Download Sample CSV
+                    </a>
+                    <button id="btnResetData" class="btn btn-outline btn-sm" style="margin-left: auto; color: var(--danger-color);" title="Reset all records in the database">
+                        Reset All Data
+                    </button>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- 2. Dashboard Section -->
+    <section id="dashboard" class="section-grey">
+        <div class="container">
+            <div class="section-header">
+                <h2>System Dashboard</h2>
+                <div class="section-subtitle">Real-time aggregate meteorological metrics calculated from imported records.</div>
+            </div>
+
+            <!-- Primary 4 Summary Cards -->
+            <div class="metrics-grid">
+                <div class="card metric-card">
+                    <div class="metric-label">Total Weather Records</div>
+                    <div class="metric-value" id="cardTotalRecords">0</div>
+                    <div class="metric-sub">Validated data rows stored</div>
+                </div>
+
+                <div class="card metric-card">
+                    <div class="metric-label">Average Temperature</div>
+                    <div class="metric-value">
+                        <span id="cardAvgTemp">0.0</span><span class="metric-unit">°C</span>
+                    </div>
+                    <div class="metric-sub">Mean recorded temperature</div>
+                </div>
+
+                <div class="card metric-card">
+                    <div class="metric-label">Average Humidity</div>
+                    <div class="metric-value">
+                        <span id="cardAvgHumidity">0.0</span><span class="metric-unit">%</span>
+                    </div>
+                    <div class="metric-sub">Mean relative humidity</div>
+                </div>
+
+                <div class="card metric-card">
+                    <div class="metric-label">Total Rainfall</div>
+                    <div class="metric-value">
+                        <span id="cardTotalRainfall">0.0</span><span class="metric-unit">mm</span>
+                    </div>
+                    <div class="metric-sub">Cumulative precipitation</div>
+                </div>
+            </div>
+
+            <!-- Supporting Statistical Sub-bar -->
+            <div class="substats-row">
+                <div class="substat-item">
+                    <div class="substat-label">Minimum Temperature</div>
+                    <div class="substat-val" id="subMinTemp">N/A</div>
+                </div>
+                <div class="substat-item">
+                    <div class="substat-label">Maximum Temperature</div>
+                    <div class="substat-val" id="subMaxTemp">N/A</div>
+                </div>
+                <div class="substat-item">
+                    <div class="substat-label">Locations Monitored</div>
+                    <div class="substat-val" id="subLocations">0</div>
+                </div>
+                <div class="substat-item">
+                    <div class="substat-label">Temporal Coverage</div>
+                    <div class="substat-val" id="subDateRange">No records</div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- 3. Upload CSV Section -->
+    <section id="upload">
+        <div class="container">
+            <div class="section-header">
+                <h2>Upload Weather CSV</h2>
+                <div class="section-subtitle">Upload CSV files containing historical temperature, humidity, and rainfall observations.</div>
+            </div>
+
+            <div id="uploadAlert" class="alert-box" style="display: none;"></div>
+
+            <div class="upload-wrapper">
+                <!-- Dropzone / Form -->
+                <form id="uploadForm">
+                    <div class="upload-dropzone">
+                        <svg class="dropzone-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path></svg>
+                        <h3>Select Weather CSV File</h3>
+                        <p id="selectedFileText" style="color: var(--text-muted); margin-top: 6px;">Click browse to select a file from your computer (.csv)</p>
+                        
+                        <input type="file" id="csvFileInput" name="file" accept=".csv" class="file-input">
+                        
+                        <div style="margin-top: 18px; display: flex; justify-content: center; gap: 10px;">
+                            <button type="button" class="btn btn-outline" onclick="document.getElementById('csvFileInput').click();">
+                                Browse File
+                            </button>
+                            <button type="submit" class="btn btn-primary">
+                                Upload & Analyze
+                            </button>
+                        </div>
+                    </div>
+                </form>
+
+                <!-- Requirements & Upload Info -->
+                <div class="upload-info-box">
+                    <h3>Dataset Validation Rules</h3>
+                    <p style="font-size: 0.9rem; margin-bottom: 8px;">The uploaded CSV file must contain the following 5 columns:</p>
+                    
+                    <div class="columns-badge-list">
+                        <span class="badge">Date (YYYY-MM-DD)</span>
+                        <span class="badge">Location</span>
+                        <span class="badge">Temperature (°C)</span>
+                        <span class="badge">Humidity (%)</span>
+                        <span class="badge">Rainfall (mm)</span>
+                    </div>
+
+                    <div style="font-size: 0.85rem; color: var(--text-muted); line-height: 1.6;">
+                        • Non-numeric temperatures or invalid dates will be safely recorded in the <em>Data Quality Report</em>.<br>
+                        • Negative rainfalls or humidity values outside 0-100% are flagged.<br>
+                        • Valid rows are automatically saved to the active database.
+                    </div>
+
+                    <!-- Uploaded File Info Result -->
+                    <div id="uploadResultInfo" style="display: none; margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--border-light);">
+                        <h4 style="font-size: 0.95rem; margin-bottom: 8px; color: var(--dark-blue-heading);">Last Upload Summary</h4>
+                        <div style="font-size: 0.9rem; display: grid; grid-template-columns: 1fr 1fr; gap: 6px;">
+                            <div>File: <strong id="resFilename">-</strong></div>
+                            <div>Size: <strong id="resFileSize">-</strong></div>
+                            <div>Total Rows: <strong id="resTotalRows">-</strong></div>
+                            <div>Valid Rows: <strong id="resValidRows" style="color: var(--success-color);">-</strong></div>
+                            <div>Invalid Rows: <strong id="resInvalidRows" style="color: var(--danger-color);">-</strong></div>
+                        </div>
+                        <ul id="resMissingList" style="margin-top: 8px; padding-left: 18px; font-size: 0.85rem; color: var(--text-secondary);"></ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- 4. Data Analysis Section -->
+    <section id="analysis" class="section-grey">
+        <div class="container">
+            <div class="section-header">
+                <h2>Statistical Data Analysis</h2>
+                <div class="section-subtitle">Comprehensive descriptive statistics and monthly summaries computed using Pandas and NumPy.</div>
+            </div>
+
+            <!-- Monthly Aggregation Table -->
+            <div class="card" style="margin-bottom: 24px;">
+                <h3 style="margin-bottom: 12px;">Monthly Weather Summaries</h3>
+                <div class="table-responsive">
+                    <table class="clean-table">
+                        <thead>
+                            <tr>
+                                <th>Month</th>
+                                <th>Records</th>
+                                <th>Average Temp (°C)</th>
+                                <th>Min Temp (°C)</th>
+                                <th>Max Temp (°C)</th>
+                                <th>Average Humidity (%)</th>
+                                <th>Total Rainfall (mm)</th>
+                            </tr>
+                        </thead>
+                        <tbody id="monthlySummaryTbody">
+                            <tr>
+                                <td colspan="7" style="text-align: center; padding: 20px; color: var(--text-muted);">
+                                    No data loaded. Please upload a weather CSV file or load sample data.
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Location Comparison Table -->
+            <div class="card">
+                <h3 style="margin-bottom: 12px;">Location-wise Weather Summary</h3>
+                <div class="table-responsive">
+                    <table class="clean-table">
+                        <thead>
+                            <tr>
+                                <th>Location</th>
+                                <th>Records</th>
+                                <th>Average Temp (°C)</th>
+                                <th>Min Temp (°C)</th>
+                                <th>Max Temp (°C)</th>
+                                <th>Average Humidity (%)</th>
+                                <th>Total Rainfall (mm)</th>
+                            </tr>
+                        </thead>
+                        <tbody id="locationSummaryTbody">
+                            <tr>
+                                <td colspan="7" style="text-align: center; padding: 20px; color: var(--text-muted);">
+                                    No location data available.
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- 5. Charts and Visualization Section -->
+    <section id="charts">
+        <div class="container">
+            <div class="section-header" style="display: flex; justify-content: space-between; align-items: flex-end; flex-wrap: wrap; gap: 12px;">
+                <div>
+                    <h2>Charts & Visualizations</h2>
+                    <div class="section-subtitle">Interactive graphical charts depicting trends and distributions.</div>
+                </div>
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <label for="chartLocationSelect" style="font-size: 0.9rem; font-weight: 500; color: var(--text-secondary);">Filter Charts by Location:</label>
+                    <select id="chartLocationSelect" class="select-control">
+                        <option value="all">All Locations (Overall)</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="charts-grid">
+                <!-- 1. Line Chart: Temperature Trends -->
+                <div class="chart-card">
+                    <div class="chart-header">
+                        <h3>1. Temperature Trends (°C)</h3>
+                        <p style="font-size: 0.85rem; color: var(--text-muted); margin: 0;">Daily mean temperature variation over time</p>
+                    </div>
+                    <div class="chart-container">
+                        <canvas id="chartTempTrends"></canvas>
+                    </div>
+                </div>
+
+                <!-- 2. Bar Chart: Monthly Rainfall -->
+                <div class="chart-card">
+                    <div class="chart-header">
+                        <h3>2. Monthly Rainfall (mm)</h3>
+                        <p style="font-size: 0.85rem; color: var(--text-muted); margin: 0;">Total cumulative precipitation recorded per month</p>
+                    </div>
+                    <div class="chart-container">
+                        <canvas id="chartMonthlyRainfall"></canvas>
+                    </div>
+                </div>
+
+                <!-- 3. Bar Chart: Monthly Average Temperature -->
+                <div class="chart-card">
+                    <div class="chart-header">
+                        <h3>3. Monthly Average Temperature (°C)</h3>
+                        <p style="font-size: 0.85rem; color: var(--text-muted); margin: 0;">Mean seasonal temperature distribution</p>
+                    </div>
+                    <div class="chart-container">
+                        <canvas id="chartMonthlyAvgTemp"></canvas>
+                    </div>
+                </div>
+
+                <!-- 4. Line Chart: Humidity Trends -->
+                <div class="chart-card">
+                    <div class="chart-header">
+                        <h3>4. Humidity Trends (%)</h3>
+                        <p style="font-size: 0.85rem; color: var(--text-muted); margin: 0;">Relative atmospheric humidity recorded over time</p>
+                    </div>
+                    <div class="chart-container">
+                        <canvas id="chartHumidityTrends"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- 6. Weather Records Section -->
+    <section id="records" class="section-grey">
+        <div class="container">
+            <div class="section-header">
+                <h2>Weather Records Database</h2>
+                <div class="section-subtitle">Search, filter, and inspect validated weather data stored in the database.</div>
+            </div>
+
+            <!-- Toolbar / Filters -->
+            <div class="table-toolbar">
+                <div class="toolbar-group">
+                    <input type="text" id="searchInput" class="input-control" placeholder="Search by location or date..." style="width: 220px;">
+                    <select id="locationFilter" class="select-control">
+                        <option value="all">All Locations</option>
+                    </select>
+                    <input type="date" id="filterDateFrom" class="input-control" title="Date From">
+                    <input type="date" id="filterDateTo" class="input-control" title="Date To">
+                    <button id="btnApplyFilter" class="btn btn-primary btn-sm">Filter</button>
+                    <button id="btnResetFilter" class="btn btn-outline btn-sm">Clear</button>
+                </div>
+
+                <div>
+                    <button id="btnExportCSV" class="btn btn-outline btn-sm">
+                        <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+                        Export Filtered Records
+                    </button>
+                </div>
+            </div>
+
+            <!-- Table -->
+            <div class="table-responsive">
+                <table class="clean-table">
+                    <thead>
+                        <tr>
+                            <th style="width: 60px;">#</th>
+                            <th>Date</th>
+                            <th>Location</th>
+                            <th>Temperature (°C)</th>
+                            <th>Humidity (%)</th>
+                            <th>Rainfall (mm)</th>
+                        </tr>
+                    </thead>
+                    <tbody id="recordsTableBody">
+                        <tr>
+                            <td colspan="6" style="text-align: center; padding: 30px; color: var(--text-muted);">
+                                Loading records...
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Pagination Bar -->
+            <div class="pagination-bar">
+                <div id="pageInfo">Showing 0 records</div>
+                <div style="display: flex; gap: 8px;">
+                    <button id="btnPrevPage" class="btn btn-outline btn-sm" disabled>Previous</button>
+                    <button id="btnNextPage" class="btn btn-outline btn-sm" disabled>Next</button>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- 7. Data Quality Report Section -->
+    <section id="quality-report">
+        <div class="container">
+            <div class="section-header">
+                <h2>Data Quality & Validation Report</h2>
+                <div class="section-subtitle">Audit of data hygiene, missing attributes, and rejected or invalid values.</div>
+            </div>
+
+            <!-- Quality Metric Cards -->
+            <div class="quality-summary-grid">
+                <div class="quality-card quality-valid">
+                    <div class="metric-label">Valid Records Accepted</div>
+                    <div class="metric-value" id="reportValidCount" style="color: var(--success-color);">0</div>
+                    <div class="metric-sub">Passed all type & range checks</div>
+                </div>
+
+                <div class="quality-card quality-invalid">
+                    <div class="metric-label">Invalid Rows Ignored</div>
+                    <div class="metric-value" id="reportInvalidCount" style="color: var(--danger-color);">0</div>
+                    <div class="metric-sub">Excluded from statistics</div>
+                </div>
+
+                <div class="quality-card quality-missing">
+                    <div class="metric-label">Total Batches Processed</div>
+                    <div class="metric-value" id="reportTotalUploads" style="color: var(--dark-blue-heading);">0</div>
+                    <div class="metric-sub">CSV upload logs preserved</div>
+                </div>
+            </div>
+
+            <!-- Data Cleaning Rules Explanation -->
+            <div class="card" style="margin-bottom: 24px;">
+                <h3>Validation & Quality Rules Implemented</h3>
+                <p style="font-size: 0.95rem; margin-bottom: 10px;">
+                    In accordance with meteorological data engineering principles, raw input is inspected prior to statistical computation:
+                </p>
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 14px; font-size: 0.9rem;">
+                    <div style="background-color: #ffffff; padding: 12px; border: 1px solid var(--border-light); border-radius: var(--radius-sm);">
+                        <strong>1. Date Format Verification:</strong> Dates must resolve to a valid calendar date (YYYY-MM-DD). Non-parsable dates are rejected.
+                    </div>
+                    <div style="background-color: #ffffff; padding: 12px; border: 1px solid var(--border-light); border-radius: var(--radius-sm);">
+                        <strong>2. Temperature Range (-60°C to 65°C):</strong> Non-numeric characters or temperatures outside terrestrial limits are rejected.
+                    </div>
+                    <div style="background-color: #ffffff; padding: 12px; border: 1px solid var(--border-light); border-radius: var(--radius-sm);">
+                        <strong>3. Humidity Bounds (0% to 100%):</strong> Relative humidity cannot be negative or exceed 100%.
+                    </div>
+                    <div style="background-color: #ffffff; padding: 12px; border: 1px solid var(--border-light); border-radius: var(--radius-sm);">
+                        <strong>4. Non-negative Rainfall:</strong> Rainfall must be a non-negative floating-point number (&ge; 0.0 mm).
+                    </div>
+                </div>
+            </div>
+
+            <!-- Rejected Records Detailed Log Table -->
+            <div class="card">
+                <h3>Detailed Log of Flagged / Ignored Records</h3>
+                <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 12px;">
+                    Each issue discovered during file ingestion is audited below with the row position, raw contents, and mitigation action taken:
+                </p>
+                <div class="table-responsive">
+                    <table class="clean-table">
+                        <thead>
+                            <tr>
+                                <th style="width: 100px;">Row Number</th>
+                                <th style="width: 140px;">Issue Type</th>
+                                <th>Raw Record Content</th>
+                                <th>Issue Description</th>
+                                <th style="width: 130px;">Action Taken</th>
+                            </tr>
+                        </thead>
+                        <tbody id="qualityLogsTbody">
+                            <tr>
+                                <td colspan="5" style="text-align: center; padding: 20px; color: var(--text-muted);">
+                                    No data quality logs recorded yet.
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer>
+        <div class="container">
+            <p style="margin-bottom: 4px; font-weight: 600; color: var(--dark-blue-heading);">Weather Data Analysis System</p>
+            <p style="margin-bottom: 0;">College Mini-Project • Developed with Python Flask, Pandas, NumPy, MySQL & Chart.js</p>
+        </div>
+    </footer>
+
+    <!-- Scripts -->
+    <script src="{{ url_for('static', filename='js/charts.js') }}?v=2"></script>
+    <script src="{{ url_for('static', filename='js/main.js') }}?v=2"></script>
+</body>
+</html>
+
